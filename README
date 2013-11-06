@@ -5,7 +5,7 @@ Unlike the original, which is extremely fast machine code doing most
 of the work using floating point registers, this is a portable
 implementation using the GMP library.
 
-An implementation of the function is javascript is included in
+An implementation of the function in javascript is included in
 curve25519.html.
 
 Security note: this implementation is not resistant to timing attacks.

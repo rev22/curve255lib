@@ -57,14 +57,14 @@ main() {
     doit(&e2e1k,&e2,&e1k);
     doit(&e2k,&e2,&k);
     doit(&e1e2k,&e1,&e2k);
-    for (i = 0;i < 8; ++i) {
+    for (i = 0;i < C25519N; ++i) {
       if (e1e2k[i] != e2e1k[i]) {
 	printf("fail\n");
       }
     }
-    for (i = 0;i < 8; ++i) e1[i] ^= e2k[i];
-    for (i = 0;i < 8; ++i) e2[i] ^= e1k[i];
-    for (i = 0;i < 8; ++i) k[i] ^= e1e2k[i];
+    for (i = 0;i < C25519N; ++i) e1[i] ^= e2k[i];
+    for (i = 0;i < C25519N; ++i) e2[i] ^= e1k[i];
+    for (i = 0;i < C25519N; ++i) k[i] ^= e1e2k[i];
   }
   exit(EXIT_SUCCESS);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2007 Michele Bini
+/* Copyright (c) 2007, 2013 Michele Bini
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -17,6 +17,7 @@
 #include <gmp.h>
 #include "curve25519.h"
 
+#if GMP_LIMB_BITS == 32
 static curve25519key_t p25519 = { 0xffffffed, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x7fffffff };
 static curve25519key_t zerocmp = { 0, 0, 0, 0, 0, 0, 0, 0 };
 static curve25519key_t onecmp = { 1, 0, 0, 0, 0, 0, 0, 0 };
@@ -34,31 +35,52 @@ static curve25519key_t unsafe[12] =
    { 0xFFFFFFDA, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF },
    { 0xFFFFFFDB, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF },
   };
+#elif GMP_LIMB_BITS == 64
+static curve25519key_t p25519 = { 0xffffffffffffffed, 0xffffffffffffffff, 0xffffffffffffffff, 0x7fffffffffffffff };
+static curve25519key_t zerocmp = { 0, 0, 0, 0 };
+static curve25519key_t onecmp = { 1, 0, 0, 0 };
+static curve25519key_t unsafe[12] =
+  {{ 0, 0, 0, 0 },
+   { 1, 0, 0, 0 },
+   { 0xAEB8413B7C7AEBE0, 0x6AC49FF1FAE35616, 0xFDB1329CEB8D09DA, 0xB8495F16056286  },
+   { 0x248C50A3BC959C5F, 0x5BEF839C55B1D0B1, 0x868E1C58C45C4404, 0x57119FD0DD4E22D8 },
+   { 0xFFFFFFFFFFFFFFEC, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF },
+   { 0xFFFFFFFFFFFFFFED, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF },
+   { 0xFFFFFFFFFFFFFFEE, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF },
+   { 0xAEB8413B7C7AEBCD, 0x6AC49FF1FAE35616, 0xFDB1329CEB8D09DA, 0x80B8495F16056286 },
+   { 0x248C50A3BC959C4C, 0x5BEF839C55B1D0B1, 0x868E1C58C45C4404, 0xD7119FD0DD4E22D8 },
+   { 0xFFFFFFFFFFFFFFD9, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF },
+   { 0xFFFFFFFFFFFFFFDA, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF },
+   { 0xFFFFFFFFFFFFFFDB, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF },
+  };
+#else
+#error "GMP_LIMBS_BITS not supported for this architecture"
+#endif
 
 #define CMP(a, b) mpn_cmp((mp_limb_t*)(a), (mp_limb_t*)(b), C25519N)
 
 extern int
 curve25519key_getbit(curve25519key_t *x, unsigned int n) {
-  unsigned int d = (sizeof(zerocmp[0])*8);
+  unsigned int d = GMP_LIMB_BITS;
   return (x[0][n / d] >> (n % d)) & 1;
 }
 
 extern void
 curve25519key_setbit(curve25519key_t *x, unsigned int n, int v) {
-  unsigned int d = (sizeof(zerocmp[0])*8);
+  unsigned int d = GMP_LIMB_BITS;
   unsigned int i = n / d;
   mp_limb_t l = x[0][i];
   if (v) {
-    l |= 1<<(n % d);
+    l |= ((mp_limb_t)1)<<(n % d);
   } else {
-    l &= ~((mp_limb_t)(1<<(n % d)));
+    l &= ~(((mp_limb_t)(1))<<(n % d));
   }
   x[0][i] = l;
 }
 
 extern unsigned int
 curve25519key_getbyte(curve25519key_t *x, unsigned int n) {
-  unsigned int d = (sizeof(zerocmp[0])*8);
+  unsigned int d = GMP_LIMB_BITS;
   n *= 8;
   return (x[0][n / d] >> (n % d)) & 0xff;
 }
@@ -67,7 +89,7 @@ extern void
 curve25519key_setbyte(curve25519key_t *x, unsigned int n, unsigned int v) {
   n *= 8;
   {
-    unsigned int d = (sizeof(zerocmp[0])*8);
+    unsigned int d = GMP_LIMB_BITS;
     unsigned int i = n / d;
     mp_limb_t l = x[0][i];
     l = ~l;
@@ -78,6 +100,8 @@ curve25519key_setbyte(curve25519key_t *x, unsigned int n, unsigned int v) {
   }
 }
 
+#if GMP_LIMB_BITS == 32
+
 extern unsigned int
 curve25519key_getuint32(curve25519key_t *x, unsigned int n) {
   return x[0][n];
@@ -87,6 +111,22 @@ extern void
 curve25519key_setuint32(curve25519key_t *x, unsigned int n, unsigned int v) {
   x[0][n] = v;
 }
+
+#elif GMP_LIMB_BITS == 64
+
+extern unsigned int
+curve25519key_getuint32(curve25519key_t *x, unsigned int n) {
+  return (x[0][n>>1] >> ((n&1)*32))&0xffffffff;
+}
+
+extern void
+curve25519key_setuint32(curve25519key_t *x, unsigned int n, unsigned int v) {
+  x[0][n>>1] = (n&1)
+  ? (x[0][n>>1] & 0xffffffff) | (((mp_limb_t)v)<<32)
+  : (x[0][n>>1] & 0xffffffff00000000) | v;
+}
+
+#endif
 
 extern int
 curve25519key_validate(curve25519key_t *x) {
@@ -193,10 +233,17 @@ mulmodp(curve25519key_t *a, curve25519key_t *b) {
     mp_limb_t r = mpn_addmul_1(d, d+C25519N, C25519N, 19*2);
     r = mpn_add_1((mp_limb_t*)a, d, C25519N, r * (19*2));
     r <<= 1;
+#if GMP_LIMB_BITS == 32
     if (((mp_limb_t*)a)[C25519N - 1] & 0x80000000) {
       r |= 1;
       ((mp_limb_t*)a)[C25519N - 1] &= 0x7fffffff;
     }
+#elif GMP_LIMB_BITS == 64
+    if (((mp_limb_t*)a)[C25519N - 1] & 0x8000000000000000) {
+      r |= 1;
+      ((mp_limb_t*)a)[C25519N - 1] &= 0x7fffffffffffffff;
+    }
+#endif
     mpn_add_1((mp_limb_t*)a, (mp_limb_t*)a, C25519N, r * 19);
     if (mpn_cmp((mp_limb_t*)a, (mp_limb_t*)&p25519, C25519N) >= 0) {
       mpn_sub_n((mp_limb_t*)a, (mp_limb_t*)a, (mp_limb_t*)&p25519, C25519N);
@@ -250,10 +297,17 @@ void mulasmall(curve25519key_t *a) {
     // r = mpn_mul_1((mp_limb_t*)a, (mp_limb_t*)a, C25519N, r*19*2);
     r = mpn_add_1((mp_limb_t*)a, (mp_limb_t*)a, C25519N, r * (19*2));
     r <<= 1;
+#if GMP_LIMB_BITS == 32
     if (((mp_limb_t*)a)[C25519N - 1] & 0x80000000) {
       r |= 1;
       ((mp_limb_t*)a)[C25519N - 1] &= 0x7fffffff;
     }
+#elif GMP_LIMB_BITS == 64
+    if (((mp_limb_t*)a)[C25519N - 1] & 0x8000000000000000) {
+      r |= 1;
+      ((mp_limb_t*)a)[C25519N - 1] &= 0x7fffffffffffffff;
+    }
+#endif
     mpn_add_1((mp_limb_t*)a, (mp_limb_t*)a, C25519N, r * 19);
     if (mpn_cmp((mp_limb_t*)a, (mp_limb_t*)&p25519, C25519N) >= 0) {
       mpn_sub_n((mp_limb_t*)a, (mp_limb_t*)a, (mp_limb_t*)&p25519, C25519N);

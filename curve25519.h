@@ -21,7 +21,7 @@
 
 #define C25519BITS 256
 #define C25519USEDBITS (C25519BITS - 1)
-#define C25519N (C25519BITS/32)
+#define C25519N (C25519BITS/GMP_LIMB_BITS)
 typedef mp_limb_t curve25519key_t[C25519N];
 
 extern void curve25519(curve25519key_t *r, curve25519key_t *f, curve25519key_t *c);
